@@ -21,6 +21,8 @@ from paulie.common.algebra_basis import (
     get_n_basis,
     get_algebras_basis,
 )
+from paulie.common.pauli_string_bitarray import PauliString
+from paulie.common.pauli_string_collection import PauliStringCollection
 
 # ---------------------------------------------------------------------------
 # Mathematical Property Helpers
@@ -243,40 +245,51 @@ def test_pauli_string_algebra_basis_interface() -> None:
 # Lie Closure / Span Tests
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize(
+    "o, n",
+    [
+        (["XY"], None),
+        (["XY", "XZ"], 4),
+        (["IYZI", "IIXX", "IIYZ", "IXXI", "XXII", "YZII"], None),
+    ],
+)
+def test_basis_commutators_are_real_linear_combinations(
+    o: list[str] | list[PauliString] | PauliStringCollection, n: int | None
+) -> None:
+    """Test that any commutator element in the Lie closure is expressible
+    as a strictly REAL linear combination of the basis elements.
 
-def test_basis_spans_lie_closure() -> None:
-    """Test that the generated basis is strictly closed under the Lie bracket
-    (commutator) across all possible generator pairs.
+    This works dynamically for n x n or 2n x 2n (Sp(n)) matrix representations.
     """
-    generators = p(["XY", "XZ"], n=4)
+    generators = p(o, n)
     basis = generators.get_algebra_basis()
 
-    num_matrices, _, _ = basis.shape
-
-    # If the algebra is 0 or 1-dimensional, closure is trivially true
+    # rows and cols will correctly capture 2n x 2n for sp(n) automatically
+    num_matrices, rows, cols = basis.shape
     if num_matrices < 2:
         return
 
-    # Flatten each basis matrix into a 1D vector
-    vectorized_basis = basis.reshape(num_matrices, -1)
+    # 1. Flatten each matrix: shape becomes (num_matrices, rows * cols)
+    basis_flat = basis.reshape(num_matrices, -1)
 
-    # Calculate the true dimension (rank) of our current algebra basis
-    base_rank = np.linalg.matrix_rank(vectorized_basis)
+    # 2. Transpose first, then stack vertically.
+    # basis_flat.T has shape (rows * cols, num_matrices)
+    # A will have shape (2 * rows * cols, num_matrices) -> Exactly M columns!
+    A = np.vstack([np.real(basis_flat.T), np.imag(basis_flat.T)])
 
-    # Loop over every unique pair to compute their commutators [A, B] = AB - BA
-    vectorized_commutators = []
+    # 3. Loop over every unique pair to compute their commutators [A, B] = AB - BA
     for mat_a, mat_b in itertools.combinations(basis, 2):
         commutator = mat_a @ mat_b - mat_b @ mat_a
-        vectorized_commutators.append(commutator.reshape(-1))
+        commutator_flat = commutator.reshape(-1)
 
-    # Stack all commutators together with the original basis elements
-    all_commutators = np.array(vectorized_commutators)
-    augmented_basis = np.vstack([vectorized_basis, all_commutators])
+        # Target vector y matches the vertical real/imag split layout of A
+        y = np.concatenate([np.real(commutator_flat), np.imag(commutator_flat)])
 
-    # Verify that adding the commutators did not expand the vector space dimension
-    augmented_rank = np.linalg.matrix_rank(augmented_basis)
+        # 4. Solve the linear system A @ c = y for the M real coefficients
+        c, _, _, _ = np.linalg.lstsq(A, y, rcond=None)
 
-    assert augmented_rank == base_rank, (
-        f"Lie Closure Failure: The commutators generated new dimensions outside the basis span. "
-        f"Original algebra dimension: {base_rank}, but expanded to: {augmented_rank}."
-    )
+        # 5. Verify that the real linear combination reconstructs the commutator
+        assert np.allclose(A @ c, y), (
+            "Lie Closure Failure: A commutator cannot be expressed as a REAL linear "
+            f"combination of the basis elements. Matrix block size was {rows}x{cols}."
+        )
