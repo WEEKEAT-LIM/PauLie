@@ -70,7 +70,7 @@ def test_u1_basis_properties() -> None:
 
 def test_u1_basis_errors() -> None:
     """Test that u(n) raises ValueError for n != 1."""
-    with pytest.raises(ValueError, match="currently supported"):
+    with pytest.raises(ValueError, match="Invalid construction"):
         get_u_basis(2)
 
 
@@ -79,9 +79,10 @@ def test_u1_basis_errors() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("n, expected_dim", [(2, 1), (3, 3), (4, 6)])
-def test_so_basis_properties(n: int, expected_dim: int) -> None:
+@pytest.mark.parametrize("n", [2, 3, 4])
+def test_so_basis_properties(n: int) -> None:
     """Test dimension calculation and matrix properties for so(n)."""
+    expected_dim = n * (n - 1) // 2
     assert get_n_so_basis(n) == expected_dim
 
     basis = get_so_basis(n)
@@ -106,9 +107,10 @@ def test_so_basis_errors() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("n, expected_dim", [(8, 63), (16, 255)])
-def test_su_basis_properties(n: int, expected_dim: int) -> None:
+@pytest.mark.parametrize("n", [8, 16])
+def test_su_basis_properties(n: int) -> None:
     """Test dimension calculation and matrix properties for su(n)."""
+    expected_dim = n**2 - 1
     assert get_n_su_basis(n) == expected_dim
 
     basis = get_su_basis(n)
@@ -132,9 +134,10 @@ def test_su_basis_errors() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("n, expected_dim", [(1, 3), (2, 10), (4, 36)])
-def test_sp_basis_properties(n: int, expected_dim: int) -> None:
+@pytest.mark.parametrize("n", [1, 2, 4])
+def test_sp_basis_properties(n: int) -> None:
     """Test dimension calculation and matrix properties for sp(n)."""
+    expected_dim = n * (2 * n + 1)
     assert get_n_sp_basis(n) == expected_dim
 
     basis = get_sp_basis(n)

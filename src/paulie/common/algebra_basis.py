@@ -20,7 +20,7 @@ def get_u_basis(n: int) -> np.ndarray:
         ValueError: If n is not 1.
     """
     if n != 1:
-        raise ValueError("u(n) basis: Only n=1 is currently supported.")
+        raise ValueError(f"u({n}) basis: Invalid construction. Only u(1) is valid.")
     return np.array([[[1j]]], dtype=np.complex128)
 
 
